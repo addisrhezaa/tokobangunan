@@ -664,6 +664,7 @@ def show_penjualan():
 
     treeview.bind("<<TreeviewSelect>>", on_select)
 
+
     # Function to add a new DetailJual record
     def add_detailjual():
         # Get the selected Penjualan ID
@@ -677,13 +678,34 @@ def show_penjualan():
         selected_produk_id = produk_dropdown.get()
         c.execute("SELECT id_produk, nama_produk FROM Produk")
         produk_rows = c.fetchall()
+        ## CARI STOK YANG ADA DI DETAILBELI BASED ON ID PRODUK
         for row in produk_rows:
             if selected_produk_id == row[1]:
                 produk_id = row[0]
-        
+                
         # Get the input from the entry field
         harga_jual = entry_harga_jual.get()
         jumlah_jual = entry_jumlah.get()
+
+        c.execute("SELECT SUM(jumlah_produk) FROM DetailBeli WHERE id_produk=?", (produk_id,))
+        total_buy = c.fetchone()[0]
+
+        # Calculate total quantity sold
+        c.execute("SELECT SUM(jumlah) FROM DetailJual WHERE id_produk=?", (produk_id,))
+        total_sold = c.fetchone()[0]
+
+        # Calculate the remaining quantity in inventory
+        if total_buy is None:
+            total_buy = 0
+        if total_sold is None:
+            total_sold = 0
+
+        remaining_quantity = total_buy - total_sold
+
+        if int(jumlah_jual) > remaining_quantity:
+            messagebox.showerror("Error", f"Stok tidak tersedia, stok hanya tersedia dengan jumlah : {remaining_quantity}")
+            return
+
         
         # Insert the DetailJual data into the database
         c.execute("INSERT INTO DetailJual (id_penjualan, id_produk, harga_jual, jumlah) VALUES (?, ?, ?, ?)",
@@ -1932,7 +1954,11 @@ def show_persediaanproduk():
                 'remaining_quantity': remaining_quantity
             }
 
+        if remaining_quantity <=0 :
+            messagebox.showerror("Error", f"Sisa persediaan {nama_produk} : 0, silahkan lakukan restock!")
+        
         return inventory
+
 
     # Generate and display the inventory report
     def generate_inventory_report():
